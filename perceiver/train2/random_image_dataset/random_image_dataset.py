@@ -147,8 +147,8 @@ class RandomImageDataset(tfds.core.GeneratorBasedBuilder):
               raise ValueError(f'Test/valid must be divisible by {total_batch_size}')
 
       # Mixup/cutmix by temporarily batching (using the per-device batch size):
-      use_cutmix = augmentation_settings['cutmix']
-      use_mixup = augmentation_settings['mixup_alpha'] is not None
+      use_cutmix = False # augmentation_settings['cutmix']
+      use_mixup = False # augmentation_settings['mixup_alpha'] is not None
       if is_training and (use_cutmix or use_mixup):
           inner_batch_size = batch_dims[-1]
           # Apply mixup, cutmix, or mixup + cutmix on batched data.
@@ -169,7 +169,21 @@ class RandomImageDataset(tfds.core.GeneratorBasedBuilder):
 
       # ds = ds.prefetch(AUTOTUNE)
 
-      yield from tfds.as_numpy(ds)
+      # yield from tfds.as_numpy(ds)
+
+      dataset2 = tf.data.Dataset.from_tensor_slices(
+          (tf.random.uniform([4, 100], maxval=100, dtype=tf.int32),
+           tf.random.uniform([4,1], maxval=100, dtype=tf.int32)
+           ))
+
+
+      # dataset2 = tf.data.Dataset.from_tensor_slices(
+      #     tf.random.uniform([4, 244*244], maxval=254, dtype=tf.int32)
+      #      )
+
+      yield from dataset2
+
+
 
   def _shard(
           split: Split, shard_index: int, num_shards: int) -> Tuple[int, int]:
