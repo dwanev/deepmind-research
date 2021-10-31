@@ -110,35 +110,37 @@ class RandomImageDataset(tfds.core.GeneratorBasedBuilder):
           max_intra_op_parallelism: int = 1,
   ) -> Generator[Batch, None, None]:
       """Loads the given split of the dataset."""
-      start, end = RandomImageDataset._shard(split, jax.host_id(), jax.host_count())
+      # start, end = RandomImageDataset._shard(split, jax.host_id(), jax.host_count())
 
       im_size = (im_dim, im_dim)
 
       total_batch_size = np.prod(batch_dims)
 
-      tfds_split = tfds.core.ReadInstruction(_to_tfds_split(split),
-                                             from_=start, to=end, unit='abs')
+      # tfds_split = tfds.core.ReadInstruction(_to_tfds_split(split),
+      #                                        from_=start, to=end, unit='abs')
 
       # ds = tfds.load('imagenet2012:5.*.*', split=tfds_split,
       #                decoders={'image': tfds.decode.SkipDecoding()})
 
-      ds = random_dataset
+      ds = tfds.load('random_image_dataset',
+                     decoders={'image': tfds.decode.SkipDecoding()})
 
-      options = tf.data.Options()
-      options.experimental_threading.private_threadpool_size = threadpool_size
-      options.experimental_threading.max_intra_op_parallelism = (
-          max_intra_op_parallelism)
-      options.experimental_optimization.map_parallelization = True
-      if is_training:
-          options.experimental_deterministic = False
-      ds = ds.with_options(options)
+
+      # options = tf.data.Options()
+      # options.experimental_threading.private_threadpool_size = threadpool_size
+      # options.experimental_threading.max_intra_op_parallelism = (
+      #     max_intra_op_parallelism)
+      # options.experimental_optimization.map_parallelization = True
+      # if is_training:
+      #     options.experimental_deterministic = False
+      # ds = ds.with_options(options)
 
       if is_training:
-          if jax.host_count() > 1:
+          if jax.process_count() > 1:
               # Only cache if we are reading a subset of the dataset.
               ds = ds.cache()
-          ds = ds.repeat()
-          ds = ds.shuffle(buffer_size=10 * total_batch_size, seed=0)
+          # ds = ds.repeat()
+          # ds = ds.shuffle(buffer_size=10 * total_batch_size, seed=0)
 
       else:
           if split.num_examples % total_batch_size != 0:
@@ -162,10 +164,10 @@ class RandomImageDataset(tfds.core.GeneratorBasedBuilder):
           # Unbatch for further processing.
           ds = ds.unbatch()
 
-      for batch_size in reversed(batch_dims):
-          ds = ds.batch(batch_size)
+      # for batch_size in reversed(batch_dims):
+      #     ds = ds.batch(batch_size)
 
-      ds = ds.prefetch(AUTOTUNE)
+      # ds = ds.prefetch(AUTOTUNE)
 
       yield from tfds.as_numpy(ds)
 
@@ -191,3 +193,13 @@ if __name__ == '__main__':
 
     d = ds.as_dataset()
     print(len(d))
+
+    print('loading....')
+    per_device_batch_size = 2
+    # split = RandomImageDataset.Split.TRAIN,
+    ds_generator = ds.load(  is_training=True, batch_dims = [jax.local_device_count(), per_device_batch_size], augmentation_settings = {'cutmix':False, 'mixup_alpha':None} )
+
+    print(ds_generator)
+
+    for x in ds_generator:
+        print(x)
