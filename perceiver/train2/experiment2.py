@@ -19,7 +19,7 @@ import optax
 from perceiver import io_processors
 from perceiver import perceiver
 # from perceiver.train2 import dataset2
-from perceiver.train2.random_image_dataset.random_image_dataset import RandomImageDataset
+from perceiver.train2.synthesised_imagenet_tfds import SynImagenet
 
 from perceiver.train import utils
 
@@ -30,7 +30,7 @@ OptState = Tuple[optax.TraceState, optax.ScaleByScheduleState, optax.ScaleState]
 Scalars = Mapping[Text, jnp.ndarray]
 
 
-N_TRAIN_EXAMPLES = RandomImageDataset.Split.TRAIN_AND_VALID.num_examples
+N_TRAIN_EXAMPLES = SynImagenet.Split.TRAIN_AND_VALID.num_examples
 N_CLASSES = 2    # Question/non question
 # Only local/debug parameters are supported out of the box.
 # To use the scaled-up hyperparameters, please adapt this script to your
@@ -245,7 +245,7 @@ class Experiment(experiment.AbstractExperiment):
 
   def _forward_fn(
       self,
-      inputs: RandomImageDataset.Batch,
+      inputs: SynImagenet.Batch,
       is_training: bool,
   ) -> jnp.ndarray:
 
@@ -323,7 +323,7 @@ class Experiment(experiment.AbstractExperiment):
   def _load_data(self, split, is_training, batch_dims):
     """Wrapper for dataset loading."""
 
-    return RandomImageDataset.load(
+    return SynImagenet.load(
         split=split,
         is_training=is_training,
         batch_dims=batch_dims,
@@ -331,7 +331,7 @@ class Experiment(experiment.AbstractExperiment):
         augmentation_settings=self.config.data.augmentation,
         )
 
-  def _build_train_input(self) -> Generator[RandomImageDataset.Batch, None, None]:
+  def _build_train_input(self) -> Generator[SynImagenet.Batch, None, None]:
     """See base class."""
     num_devices = jax.device_count()
     global_batch_size = self.config.training.batch_size
@@ -342,7 +342,7 @@ class Experiment(experiment.AbstractExperiment):
           f'Global batch size {global_batch_size} must be divisible by '
           f'num devices {num_devices}')
 
-    split = RandomImageDataset.Split.TRAIN_AND_VALID
+    split = SynImagenet.Split.TRAIN_AND_VALID
 
     return self._load_data(
         split=split,
@@ -358,7 +358,7 @@ class Experiment(experiment.AbstractExperiment):
       self,
       params: hk.Params,
       state: hk.State,
-      inputs: RandomImageDataset.Batch,
+      inputs: SynImagenet.Batch,
       rng: jnp.ndarray,
   ) -> Tuple[jnp.ndarray, Tuple[Scalars, hk.State]]:
     logits, state = self.forward.apply(
@@ -405,7 +405,7 @@ class Experiment(experiment.AbstractExperiment):
       params: hk.Params,
       state: hk.State,
       opt_state: OptState,
-      inputs: RandomImageDataset.Batch,
+      inputs: SynImagenet.Batch,
       rng: jnp.ndarray,
       global_step: int,
   ) -> Tuple[hk.Params, hk.State, OptState, Scalars]:
@@ -458,7 +458,7 @@ class Experiment(experiment.AbstractExperiment):
       self,
       params: hk.Params,
       state: hk.State,
-      inputs: RandomImageDataset.Batch,
+      inputs: SynImagenet.Batch,
       rng: jnp.ndarray,
   ) -> Scalars:
     """Evaluates a batch."""
@@ -483,8 +483,8 @@ class Experiment(experiment.AbstractExperiment):
         'eval_loss': loss,
         'eval_top_1_acc': top_1_acc, 'eval_top_5_acc': top_5_acc}
 
-  def _build_eval_input(self) -> Generator[RandomImageDataset.Batch, None, None]:
-    split = RandomImageDataset.Split.from_string(self.config.evaluation.subset)
+  def _build_eval_input(self) -> Generator[SynImagenet.Batch, None, None]:
+    split = SynImagenet.Split.from_string(self.config.evaluation.subset)
 
     return self._load_data(
         split=split,
